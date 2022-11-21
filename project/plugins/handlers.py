@@ -48,14 +48,14 @@ async def menu(client, message):  # State zero
 
 # Case new channel
 @Client.on_callback_query(
-    state_filter_query(UserState.user_states, state=1, expected_id=1)
+    state_filter_query(UserState.user_states, state=1, expected_tag="1 create")
 )
-async def state_one(client, callback_query):
-    user_id = str(callback_query.message.chat.id)
+async def state_one_add_channel(client, callback_query):
+    user_id_tlm = str(callback_query.message.chat.id)
     await callback_query.edit_message_text(
         "Enter the url of a channel you want to be following"
     )
-    UserState.user_states[user_id] = 2
+    UserState.user_states[user_id_tlm] = 2
 
 
 @Client.on_message(state_filter_message(UserState.user_states, state=2))
@@ -68,16 +68,39 @@ async def url_input(client, message):
         message.text[:16] == "www.youtube.com/"
         or message.text[:24] == "https://www.youtube.com/"
     ):
-        await message.reply(f"Entered URL '{message.text}'")
+        await message.reply(f"Entered URL '{message.text}'\nWait please...")
         new_client_channel_request = {"client_id": user_id, "url": message.text}
         async with HTTPClient() as http_client:
             response = await http_client.post(
                 url="/api_front/new_client_channel", data=new_client_channel_request
             )
             new_videos = response.element["list_videos"]
-            response_message = "New videos of a Youtube channel:\n"
+            response_message = "New videos:\n"
             for video in new_videos:
                 response_message += f"- [{video[0]}](www.youtube.com{video[1]})\n"
             await message.reply(response_message)
     else:
         await message.reply("Invalid URL\nPlease try again")
+
+
+# Case new channel
+@Client.on_callback_query(
+    state_filter_query(UserState.user_states, state=1, expected_tag="1 current")
+)
+async def state_one_current_list(client, callback_query):
+    user_id_tlm = str(callback_query.message.chat.id)
+    user_id = await UserState.get_id_db(user_id_tlm)
+    async with HTTPClient() as http_client:
+        response = await http_client.get(
+            f"/api_front/get_clients_channel_list/{user_id}"
+        )
+        channel_list = (response.element)["channel_list"]
+
+        result_text = "Channels you are following right now:\n"
+        for i, channel in enumerate(channel_list):
+            result_text += (
+                f"{i+1}. [{channel['channel_name']}]({channel['channel_url']})\n"
+            )
+
+        await callback_query.edit_message_text(result_text)
+    UserState.user_states[user_id] = 0

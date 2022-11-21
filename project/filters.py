@@ -13,11 +13,11 @@ def main_filter_deco(user_states):
     return filters.create(func)
 
 
-def state_filter_query(user_states, state, expected_id):  # TODO
+def state_filter_query(user_states, state, expected_tag: str):  # TODO
     async def func(flt, _, query):
         user_id = str(query.message.chat.id)
-        print(query.data[0])
-        return user_states[user_id] == state and query.data[0] == str(expected_id)
+        print(query.data)
+        return user_states[user_id] == state and query.data == expected_tag
 
     return filters.create(func)
 
