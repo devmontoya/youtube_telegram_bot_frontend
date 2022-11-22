@@ -74,11 +74,11 @@ async def url_input(client, message):
             response = await http_client.post(
                 url="/api_front/new_client_channel", data=new_client_channel_request
             )
-            new_videos = response.element["list_videos"]
-            response_message = "New videos:\n"
-            for video in new_videos:
-                response_message += f"- [{video[0]}](www.youtube.com{video[1]})\n"
-            await message.reply(response_message)
+        new_videos = response.element["list_videos"]
+        response_message = "New videos:\n"
+        for video in new_videos:
+            response_message += f"- [{video[0]}](www.youtube.com{video[1]})\n"
+        await message.reply(response_message)
     else:
         await message.reply("Invalid URL\nPlease try again")
 
@@ -94,13 +94,46 @@ async def state_one_current_list(client, callback_query):
         response = await http_client.get(
             f"/api_front/get_clients_channel_list/{user_id}"
         )
-        channel_list = (response.element)["channel_list"]
+    channel_list = (response.element)["channel_list"]
 
-        result_text = "Channels you are following right now:\n"
-        for i, channel in enumerate(channel_list):
-            result_text += (
-                f"{i+1}. [{channel['channel_name']}]({channel['channel_url']})\n"
+    result_text = "Channels you are following right now:\n"
+    for i, channel in enumerate(channel_list):
+        result_text += f"{i+1}. [{channel['channel_name']}]({channel['channel_url']})\n"
+
+    await callback_query.edit_message_text(result_text)
+    UserState.user_states[user_id] = 0
+
+
+# Case new channel
+@Client.on_callback_query(
+    state_filter_query(UserState.user_states, state=1, expected_tag="1 check")
+)
+async def state_one_check_channels(client, callback_query):
+    user_id_tlm = str(callback_query.message.chat.id)
+    user_id = await UserState.get_id_db(user_id_tlm)
+    async with HTTPClient() as http_client:
+        response = await http_client.get(
+            f"/api_front/get_clients_channel_list/{user_id}"
+        )
+    channel_list = (response.element)["channel_list"]
+    log.debug("app got channels")
+    result_text = "Channels you are following right now:\n"
+    for i, channel in enumerate(channel_list):
+        result_text += (
+            f"\n{i+1}. [{channel['channel_name']}]({channel['channel_url']})\n"
+        )
+        new_client_channel_request = {
+            "client_id": user_id,
+            "url": f"www.youtube.com/c/{channel['channel_name']}",
+        }  # TODO is better to use channel_id, it requires a new endpoint
+        async with HTTPClient() as http_client:
+            response = await http_client.post(
+                url="/api_front/new_client_channel", data=new_client_channel_request
             )
-
-        await callback_query.edit_message_text(result_text)
+        new_videos = response.element["list_videos"]
+        for video in new_videos:
+            result_text += f"- [{video[0]}](www.youtube.com{video[1]})\n"
+        if len(new_videos) == 0:
+            result_text += "No new videos for this channel\n"
+    await callback_query.edit_message_text(result_text)
     UserState.user_states[user_id] = 0
