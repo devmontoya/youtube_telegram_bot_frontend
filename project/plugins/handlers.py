@@ -37,9 +37,9 @@ class UserState:
 @Client.on_message(main_filter_deco(UserState.id_cache))
 async def menu(client, message):  # State zero
     user_id = str(message.chat.id)
-
+    user_id_response ="Hello user: " + "*"*(len(user_id)-4) + user_id[-4:]
     _ = await message.reply(
-        f"Hello user: {user_id}", reply_markup=InlineKeyboardMarkup(initial_buttons)
+        user_id_response, reply_markup=InlineKeyboardMarkup(initial_buttons)
     )
     await UserState.get_id_db(user_id)
 
